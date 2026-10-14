@@ -1,0 +1,6 @@
+*.exe
+*.asar
+*.7z
+*.rar
+*.zip
+state.json

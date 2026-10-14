@@ -1,0 +1,10 @@
+[Desktop Entry]
+Name=Greymarch Online
+Comment=Greymarch Online launcher (umu + GE-Proton11-7)
+# Desktop files do not expand $HOME. Use the absolute path of the installed script.
+Exec=/ABSOLUTE/PATH/TO/greymarch-online
+Icon=greymarch-online
+Terminal=false
+Type=Application
+Categories=Game;
+StartupNotify=true

@@ -1,0 +1,39 @@
+#!/usr/bin/env bash
+# Start the Greymarch launcher inside its own umu prefix.
+# Do not point this at a Steam library install or another mod list.
+set -u
+PREFIX="$HOME/Games/umu/umu-greymarch"
+GE="$HOME/.local/share/Steam/compatibilitytools.d/GE-Proton11-7-x86_64"
+LAUNCHER_DIR="$PREFIX/drive_c/Program Files/Greymarch Launcher"
+GAME_LINK="$PREFIX/drive_c/Program Files (x86)/Steam/steamapps/common/Skyrim Special Edition"
+LOG="$HOME/.local/share/greymarch-online/launcher-stdio.log"
+EXE="Greymarch Launcher.exe"
+
+resolved=$(readlink -f "$GAME_LINK" 2>/dev/null || true)
+library=$(readlink -f "$HOME/.local/share/Steam/steamapps/common/Skyrim Special Edition" 2>/dev/null || true)
+if [ -z "$resolved" ] || [ "$resolved" = "$library" ]; then
+  echo "refusing to launch: game link is missing or points at the Steam library Skyrim" >&2
+  echo "  link: ${resolved:-missing}" >&2
+  exit 1
+fi
+
+if pgrep -f "Greymarch Launcher.exe" >/dev/null 2>&1; then
+  exit 0
+fi
+
+mkdir -p "$(dirname "$LOG")"
+cd "$LAUNCHER_DIR" || exit 1
+export GAMEID=umu-greymarch
+export UMU_ID=umu-greymarch
+export UMU_USE_STEAM=1
+export PROTONPATH="$GE"
+export STEAM_COMPAT_CLIENT_INSTALL_PATH="$HOME/.local/share/Steam"
+export SteamAppId=489830
+export SteamGameId=489830
+export GM_LAUNCHER_DATA='C:\GreymarchLauncher'
+# Wine's builtin powershell.exe is a stub. The version row still needs the
+# asar fallback in the guide; this override alone does not clear it.
+export WINEDLLOVERRIDES="${WINEDLLOVERRIDES:+$WINEDLLOVERRIDES;}powershell.exe=n"
+nohup umu-run "$EXE" --no-sandbox >> "$LOG" 2>&1 &
+disown
+exit 0
