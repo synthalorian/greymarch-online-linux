@@ -2,7 +2,9 @@
 
 Unofficial notes for running the [Greymarch Online](https://greymarchonline.com/) launcher on Linux. This is not a Greymarch release, and it does not ship the game, the launcher, SKSE, or any mods.
 
-Tested against Skyrim Special Edition `1.6.1170.0`, SKSE `2.2.6`, launcher `0.1.20`, and `GE-Proton11-7`. A newer launcher can move files. Read `latest.yml` and the unpacked `requirements.json` before treating a pin below as current.
+This is the path that produced a local game window on this machine. It is not a finished Vortex collection install, and the game server was offline the whole time. A local window is not a connected session.
+
+Tested against Skyrim Special Edition `1.6.1170.0`, SKSE `2.2.6`, `Greymarch-Launcher-Setup-latest.exe` (same byte size as the `0.1.20` file named in `latest.yml`), and `GE-Proton11-7`. A newer launcher can move files. Read `latest.yml` and the unpacked `requirements.json` before treating a pin below as current.
 
 ## What not to do
 
@@ -45,19 +47,15 @@ Done only when `SkyrimSE.exe` has the same md5 as `depot_489833/SkyrimSE.exe` an
 
 ## 2. Prefix and launcher
 
-Prefix id is `umu-greymarch`. Create the prefix by running any short command through umu once, or let the launch script below create it on first start. Then extract the launcher. Do not click through the NSIS wizard.
+Prefix id is `umu-greymarch`. Create it with `umu-run wineboot --init` under `GAMEID=umu-greymarch` and `UMU_ID=umu-greymarch`, `PROTONPATH` pointing at `GE-Proton11-7-x86_64`. Do not let the first launch invent the prefix.
 
-The feed is `https://files.greymarchonline.com/launcher/latest.yml`. Download the `path` it names (this setup used `Greymarch-Launcher-Setup-0.1.20.exe`).
+Download the installer that was actually used:
 
-```bash
-SETUP="$HOME/Downloads/Greymarch-Launcher-Setup-0.1.20.exe"
-WORKDIR="$HOME/Downloads/greymarch-launcher"
-mkdir -p "$WORKDIR"
-7z x -y -o"$WORKDIR" "$SETUP"
-7z x -y -o"$WORKDIR/payload" "$WORKDIR/\$PLUGINSDIR/app-64.7z"
+```text
+https://files.greymarchonline.com/launcher/Greymarch-Launcher-Setup-latest.exe
 ```
 
-Copy the payload into the prefix:
+`latest.yml` on that same host named `Greymarch-Launcher-Setup-0.1.20.exe` at the same byte size (`115114532`). Do not click through the NSIS wizard. `7z x` the setup exe, then `7z x` the `$PLUGINSDIR/app-64.7z` inside it. Copy that payload into:
 
 ```text
 $HOME/Games/umu/umu-greymarch/drive_c/Program Files/Greymarch Launcher
@@ -113,11 +111,15 @@ GET https://files.greymarchonline.com/files/{sha256}
 
 Write each `files[].path` under the isolated `Data/`. Replace a file only after its sha256 matches. A full match is what the launcher calls up to date.
 
+`Data/Platform/Plugins/skymp5-client-settings.txt` was written in the isolated tree from the launcher config (server address, port, and the autoplay flag). The other tree's copy of that file was a different inode and was not overwritten. Do not publish the values.
+
 Refetch `https://files.greymarchonline.com/required-mods.json` before judging the mod badge. The server list changes without a collection revision bump.
 
 ## 5. Version row
 
-The launcher's version check shells out to `powershell.exe`. Wine's builtin returns empty, so the row fails closed even with `WINEDLLOVERRIDES=powershell.exe=n`.
+The launcher's version check shells out to `powershell.exe`. Wine's builtin returns empty.
+
+A native `powershell.exe` built for this prefix, plus `powershell.exe=native` in the prefix registry and `WINEDLLOVERRIDES=powershell.exe=n`, did not clear the row. Under `umu-run` the launcher child never ran that shim. The fix that cleared it is a fallback in the launcher itself.
 
 Unpack `resources/app.asar`, and in `src/main/core/skyrim.js` fall back to the PE version string when that shell returns null:
 
@@ -166,7 +168,11 @@ npx --yes @electron/asar pack /tmp/greymarch-asar resources/app.asar
 
 ## 6. Mods
 
-Use a second Vortex profile. Do not launch `/usr/bin/vortex` for this tree. That wrapper adds `--download` when given an argument, and a bare launch uses `~/.config/Vortex`.
+The Play button stayed **Download mods** until every probed file in `required-mods.json` was present, hash-matched, and starred in the prefix `Plugins.txt`. Vortex did not do that install.
+
+A separate Vortex window was opened with the command below. `--user-data-dir` alone is ignored and opens `~/.config/Vortex`. That first window was an existing profile with an Apply Changes dialog. It was killed. Apply was not clicked. The env form below is what actually opened a fresh login window:
+
+Do not launch `/usr/bin/vortex` for this tree. That wrapper adds `--download` when given an argument, and a bare launch uses `~/.config/Vortex`.
 
 ```bash
 env ELECTRON_USERDATA="$HOME/.config/Vortex-greymarch" \
@@ -186,7 +192,14 @@ Collection:
 https://www.nexusmods.com/games/skyrimspecialedition/collections/agfyia
 ```
 
-The pin list is `collection.json` inside the collection archive, not the first download batch in the log. An exact `source.fileSize` match in that profile's download directory means the archive is present. That check is not the launcher hash gate.
+That login was not completed, so Vortex never deployed the collection. Do not treat a Vortex window as the install.
+
+What filled the badge was a hash copy into the isolated `Data/` only:
+
+- Files whose sha256 already matched `required-mods.json` were copied from an existing 1.6.1170 `Data/` tree. Files that did not match were left behind. The other tree was not deployed into, and it did not gain `GreymarchCore.esp`.
+- The rest were already-downloaded archives under `~/.config/Vortex/downloads/skyrimse`. The probed member was extracted and copied only when its sha256 matched the live JSON.
+
+The pin list is `collection.json` inside the collection archive, not the first download batch in the log. An exact `source.fileSize` match means the archive is present. That check is not the launcher hash gate.
 
 The Play button stays **Download mods** while any `required-mods.json` file is missing, hash-mismatched, or not starred in the prefix `Plugins.txt`:
 
@@ -202,7 +215,7 @@ The launcher removes plugins it treats as conflicts. Do not copy those back from
 
 ### Engine Fixes
 
-Skyrim Souls warns when SSE Engine Fixes is missing, or when Memory Manager and Global Time are off. The preloader alone is not the plugin.
+The game window came up before this. Skyrim Souls then warned that SSE Engine Fixes was missing, or that Memory Manager and Global Time were off. The preloader alone is not the plugin. On this machine the preloader `d3dx9_42.dll` in the game root already matched the Nexus file. The plugin did not.
 
 From Nexus mod `17230`, Engine Fixes `7.0.20`:
 
@@ -217,11 +230,15 @@ SKSE on this prefix loaded plugins from `Data/SKSE/Plugins` (capital `SKSE`). A 
 
 Install `scripts/greymarch-online` to `$HOME/.local/bin/greymarch-online` and mark it executable. It refuses to start if the game link is missing or points at the Steam library tree. It runs `umu-run` from inside the launcher directory, with the bare exe name and `--no-sandbox`.
 
-The first Play can sit on **Skyrim is starting** for a while. That hang is the launcher spawn, not a dead install. Do not start a second loader beside it.
+Log in through the launcher (Discord). That login is not the game server.
+
+A direct `umu-run` of `skse64_loader.exe` from the unix game path died in the Proton hook and was killed. Host `wine` is not a substitute. The launcher's own Play spawn is the launch that stayed up.
+
+The first Play sat on **Skyrim is starting**, then the window came up. That hang was the launcher spawn, not a dead install. Do not start a second loader beside it.
 
 Optional desktop entry: `scripts/greymarch-online.desktop`. `Exec` must be an absolute path. Desktop files do not expand `$HOME`.
 
-The seal is the PNG frames in the launcher exe resource section (`RT_ICON` group 3): 16, 32, 48, 64, 128, 256. Do not use `logo.webp`, the site favicon, or `steam_icon_489830`. Write each frame to:
+There is no Walker binary on this desktop. The app-menu entry is the `.desktop` file. The seal is the PNG frames extracted from `Greymarch Launcher.exe` icon resources: 16, 32, 48, 64, 128, 256. Do not use `logo.webp`, the site favicon, or `steam_icon_489830`. Write each frame to:
 
 ```text
 $HOME/.local/share/icons/hicolor/<size>x<size>/apps/greymarch-online.png
@@ -248,6 +265,6 @@ The launcher asks `https://auth.greymarchonline.com/api/status`. `{"online":fals
 | Proton | `GE-Proton11-7-x86_64` via `umu-run` |
 | Prefix | `$HOME/Games/umu/umu-greymarch` |
 | Game tree | `$HOME/Games/greymarch/Skyrim Special Edition` |
-| Launcher feed | `0.1.20` from `latest.yml` |
+| Launcher | `Greymarch-Launcher-Setup-latest.exe` (115114532 bytes; `latest.yml` names that size as `0.1.20`) |
 | Collection | Nexus `agfyia` |
 | Engine Fixes | `7.0.20`, AE / `1.6.1170` plugin, preloader in the game root |
