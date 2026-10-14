@@ -21,6 +21,26 @@ if pgrep -f "Greymarch Launcher.exe" >/dev/null 2>&1; then
   exit 0
 fi
 
+# Steam is the bridge. UMU_USE_STEAM=1 needs the client process, not a library
+# Play click. Starting Skyrim from Steam hits the other tree.
+steam_client_up() {
+  pgrep -f "$HOME/.local/share/Steam/ubuntu12_32/steam " >/dev/null 2>&1
+}
+if ! steam_client_up; then
+  echo "Steam is not running. Starting the client. Do not press Play on Skyrim." >&2
+  steam -silent >/dev/null 2>&1 &
+  for _ in $(seq 1 90); do
+    if steam_client_up; then
+      break
+    fi
+    sleep 1
+  done
+  if ! steam_client_up; then
+    echo "Steam did not come up. Open the Steam client, then run this again." >&2
+    exit 1
+  fi
+fi
+
 mkdir -p "$(dirname "$LOG")"
 cd "$LAUNCHER_DIR" || exit 1
 export GAMEID=umu-greymarch

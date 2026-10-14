@@ -9,6 +9,7 @@ Tested against Skyrim Special Edition `1.6.1170.0`, SKSE `2.2.6`, `Greymarch-Lau
 ## What not to do
 
 - Do not install into the Steam library copy of Skyrim. A second mod list that deploys there will overwrite it.
+- Do not press Play on Skyrim in the Steam library. Steam has to be open as the bridge. The library Play button is the other tree.
 - Do not launch the loader with a second `umu-run` of the unix path under `$HOME`. Proton stops with `unable to use parent for game drive`.
 - Do not launch the loader with the host `wine` binary. That null-derefs in the SKSE hook.
 - Do not run the launcher's NSIS setup wizard. Extract it.
@@ -226,31 +227,25 @@ That is `EngineFixes.dll`, `EngineFixes.toml`, `EngineFixes_preload.txt`, and `E
 
 SKSE on this prefix loaded plugins from `Data/SKSE/Plugins` (capital `SKSE`). A lowercase `skse/plugins` directory is not the one it used.
 
-## 7. Launch
+## 7. Shortcut
 
-Install `scripts/greymarch-online` to `$HOME/.local/bin/greymarch-online` and mark it executable. It refuses to start if the game link is missing or points at the Steam library tree. It runs `umu-run` from inside the launcher directory, with the bare exe name and `--no-sandbox`.
+One command, after the prefix and the launcher payload are in place:
+
+```bash
+scripts/install-shortcut
+```
+
+That copies `scripts/greymarch-online` to `$HOME/.local/bin/greymarch-online`, writes `$HOME/.local/share/applications/greymarch-online.desktop` with an absolute `Exec` (desktop files do not expand `$HOME`), pulls the 16 through 256 seal frames out of `Greymarch Launcher.exe`, and refreshes the menu cache. There is no Walker binary on this desktop. The app menu, and anything that reads desktop files, picks the entry up from that file. Do not use `logo.webp`, the site favicon, `steam_icon_489830`, or a user hicolor `index.theme`. Do not restart the shell for the icon.
+
+Steam has to be running before Play. The shortcut is not a Steam library launch. `UMU_USE_STEAM=1` uses the Steam client as the bridge, app `489830`. If the client is down, the script starts `steam -silent` and waits. Leave that client open. Do not press Play on Skyrim in Steam. That starts the library tree, not this one.
+
+The script refuses to start if the game link is missing or points at the Steam library tree. It runs `umu-run` from inside the launcher directory, with the bare exe name and `--no-sandbox`.
 
 Log in through the launcher (Discord). That login is not the game server.
 
 A direct `umu-run` of `skse64_loader.exe` from the unix game path died in the Proton hook and was killed. Host `wine` is not a substitute. The launcher's own Play spawn is the launch that stayed up.
 
 The first Play sat on **Skyrim is starting**, then the window came up. That hang was the launcher spawn, not a dead install. Do not start a second loader beside it.
-
-Optional desktop entry: `scripts/greymarch-online.desktop`. `Exec` must be an absolute path. Desktop files do not expand `$HOME`.
-
-There is no Walker binary on this desktop. The app-menu entry is the `.desktop` file. The seal is the PNG frames extracted from `Greymarch Launcher.exe` icon resources: 16, 32, 48, 64, 128, 256. Do not use `logo.webp`, the site favicon, or `steam_icon_489830`. Write each frame to:
-
-```text
-$HOME/.local/share/icons/hicolor/<size>x<size>/apps/greymarch-online.png
-```
-
-Do not add a user hicolor `index.theme`. Then:
-
-```bash
-update-desktop-database "$HOME/.local/share/applications"
-```
-
-Do not restart the shell for the icon.
 
 ## 8. Offline
 

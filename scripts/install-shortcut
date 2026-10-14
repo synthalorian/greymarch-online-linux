@@ -1,0 +1,81 @@
+#!/usr/bin/env bash
+# Install the Greymarch menu shortcut.
+# Writes the launch script, a desktop entry with an absolute Exec path,
+# and the seal icons taken out of the launcher exe.
+set -eu
+
+ROOT=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+BIN_DIR="${BIN_DIR:-$HOME/.local/bin}"
+APP_DIR="${APP_DIR:-$HOME/.local/share/applications}"
+ICON_ROOT="${ICON_ROOT:-$HOME/.local/share/icons/hicolor}"
+LAUNCHER_EXE="${LAUNCHER_EXE:-$HOME/Games/umu/umu-greymarch/drive_c/Program Files/Greymarch Launcher/Greymarch Launcher.exe}"
+
+install -d "$BIN_DIR" "$APP_DIR"
+install -m 755 "$ROOT/greymarch-online" "$BIN_DIR/greymarch-online"
+
+# Desktop files do not expand $HOME. The menu entry has to name the real script.
+cat > "$APP_DIR/greymarch-online.desktop" <<EOF
+[Desktop Entry]
+Name=Greymarch Online
+Comment=Greymarch Online launcher (umu + GE-Proton11-7). Steam client must be running.
+Exec=$BIN_DIR/greymarch-online
+Icon=greymarch-online
+Terminal=false
+Type=Application
+Categories=Game;
+StartupNotify=true
+EOF
+
+python3 - "$LAUNCHER_EXE" "$ICON_ROOT" <<'PY'
+import os, sys
+exe, icon_root = sys.argv[1], sys.argv[2]
+want = {16, 32, 48, 64, 128, 256}
+if not os.path.isfile(exe):
+    print("launcher exe missing, icons skipped:", exe, file=sys.stderr)
+    raise SystemExit(0)
+data = open(exe, "rb").read()
+sig = b"\x89PNG\r\n\x1a\n"
+found = {}
+i = 0
+while True:
+    i = data.find(sig, i)
+    if i < 0:
+        break
+    pos = i + 8
+    width = height = None
+    end = None
+    while pos + 12 <= len(data):
+        length = int.from_bytes(data[pos:pos + 4], "big")
+        ctype = data[pos + 4:pos + 8]
+        nxt = pos + 12 + length
+        if nxt > len(data) or length > 8_000_000:
+            break
+        if ctype == b"IHDR" and length >= 8:
+            width = int.from_bytes(data[pos + 8:pos + 12], "big")
+            height = int.from_bytes(data[pos + 12:pos + 16], "big")
+        if ctype == b"IEND":
+            end = nxt
+            break
+        pos = nxt
+    if end and width == height and width in want and width not in found:
+        found[width] = data[i:end]
+    i += 8
+missing = sorted(want - set(found))
+if missing:
+    print("icon sizes not found in the exe:", missing, file=sys.stderr)
+for size, blob in sorted(found.items()):
+    dest_dir = os.path.join(icon_root, f"{size}x{size}", "apps")
+    os.makedirs(dest_dir, exist_ok=True)
+    path = os.path.join(dest_dir, "greymarch-online.png")
+    open(path, "wb").write(blob)
+    print(f"icon {size}x{size} {len(blob)} {path}")
+PY
+
+if command -v update-desktop-database >/dev/null 2>&1; then
+  update-desktop-database "$APP_DIR"
+fi
+
+echo "shortcut: $APP_DIR/greymarch-online.desktop"
+echo "script:   $BIN_DIR/greymarch-online"
+echo "Steam has to be open before Play. This shortcut starts the client if it is down."
+echo "Do not press Play on Skyrim in the Steam library."
