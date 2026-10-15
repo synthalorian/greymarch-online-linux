@@ -1,3 +1,5 @@
+![greymarch-online-linux](.github/preview.png)
+
 # Greymarch Online on Linux
 
 Unofficial notes for running the [Greymarch Online](https://greymarchonline.com/) launcher on Linux. This is not a Greymarch release, and it does not ship the game, the launcher, SKSE, or any mods.
