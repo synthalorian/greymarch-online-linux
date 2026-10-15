@@ -263,3 +263,7 @@ The launcher asks `https://auth.greymarchonline.com/api/status`. `{"online":fals
 | Launcher | `Greymarch-Launcher-Setup-latest.exe` (115114532 bytes; `latest.yml` names that size as `0.1.20`) |
 | Collection | Nexus `agfyia` |
 | Engine Fixes | `7.0.20`, AE / `1.6.1170` plugin, preloader in the game root |
+
+## License
+
+MIT. See [LICENSE](LICENSE). Copies distributed before this change stay Apache-2.0.
