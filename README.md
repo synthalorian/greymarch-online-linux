@@ -16,6 +16,7 @@ Tested against Skyrim Special Edition `1.6.1170.0`, SKSE `2.2.6`, `Greymarch-Lau
 - Do not launch the loader with the host `wine` binary. That null-derefs in the SKSE hook.
 - Do not run the launcher's NSIS setup wizard. Extract it.
 - Do not print or commit `state.json`. The login token sits next to `skyrimDir`.
+- Do not click the open server list. Under Wine that popup flashes and does not take the mouse. Focus the dropdown, press Down until the other server is highlighted, then Enter.
 - A local game window is not a connected session. If the auth status says `online: false`, the server is down.
 
 ## What you need
@@ -244,6 +245,8 @@ Steam has to be running before Play. The shortcut is not a Steam library launch.
 The script refuses to start if the game link is missing or points at the Steam library tree. It runs `umu-run` from inside the launcher directory, with the bare exe name and `--no-sandbox`.
 
 Log in through the launcher (Discord). That login is not the game server.
+
+The server list is a native dropdown, and it only appears when the account may join more than one server. Under Wine the open list flashes and the click never lands. Focus the dropdown, press Down until the other server is highlighted, then Enter. Spam-clicking does not select it.
 
 A direct `umu-run` of `skse64_loader.exe` from the unix game path died in the Proton hook and was killed. Host `wine` is not a substitute. The launcher's own Play spawn is the launch that stayed up.
 
