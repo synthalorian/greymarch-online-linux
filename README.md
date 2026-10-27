@@ -4,9 +4,9 @@
 
 Unofficial notes for running the [Greymarch Online](https://greymarchonline.com/) launcher on Linux. This is not a Greymarch release, and it does not ship the game, the launcher, SKSE, or any mods.
 
-This is the path that produced a local game window on this machine. It is not a finished Vortex collection install, and the game server was offline the whole time. A local window is not a connected session.
+This is the path that cleared the launcher mod check on this machine. Vortex did not deploy the collection. The badge cleared when every probed file in `required-mods.json` was present in the isolated `Data/` tree and its sha256 matched. A local window is not a connected session. Judge the game server with the status endpoint below. Do not treat a Vortex window as the install.
 
-Tested against Skyrim Special Edition `1.6.1170.0`, SKSE `2.2.6`, `Greymarch-Launcher-Setup-latest.exe` (same byte size as the `0.1.20` file named in `latest.yml`), and `GE-Proton11-7`. A newer launcher can move files. Read `latest.yml` and the unpacked `requirements.json` before treating a pin below as current.
+Tested against Skyrim Special Edition `1.6.1170.0`, SKSE `2.2.6`, launcher `0.1.42` (`latest.yml` names `Greymarch-Launcher-Setup-0.1.42.exe`, 115435593 bytes), and `GE-Proton11-7`. A newer launcher can move files. Read `latest.yml` and the unpacked `requirements.json` before treating a pin below as current.
 
 ## What not to do
 
@@ -16,6 +16,8 @@ Tested against Skyrim Special Edition `1.6.1170.0`, SKSE `2.2.6`, `Greymarch-Lau
 - Do not launch the loader with the host `wine` binary. That null-derefs in the SKSE hook.
 - Do not run the launcher's NSIS setup wizard. Extract it.
 - Do not print or commit `state.json`. The login token sits next to `skyrimDir`.
+- Do not hand an `nxm://` link to a Vortex whose `gamePath` is the Steam library tree. The wrapper forwards to whatever instance is already up. That installs into the other mod list.
+- Do not click **Get Mods** in the launcher. A missing-mod card is a file probe. Hash-copy the probed file, then Check Again.
 - Do not click the open server list. Under Wine that popup flashes and does not take the mouse. Focus the dropdown, press Down until the other server is highlighted, then Enter.
 - A local game window is not a connected session. If the auth status says `online: false`, the server is down.
 
@@ -59,11 +61,19 @@ Download the installer that was actually used:
 https://files.greymarchonline.com/launcher/Greymarch-Launcher-Setup-latest.exe
 ```
 
-`latest.yml` on that same host named `Greymarch-Launcher-Setup-0.1.20.exe` at the same byte size (`115114532`). Do not click through the NSIS wizard. `7z x` the setup exe, then `7z x` the `$PLUGINSDIR/app-64.7z` inside it. Copy that payload into:
+`latest.yml` on that same host names `Greymarch-Launcher-Setup-0.1.42.exe` at 115435593 bytes. Do not click through the NSIS wizard. `7z x` the setup exe, then `7z x` the `$PLUGINSDIR/app-64.7z` inside it. Copy that payload into:
 
 ```text
 $HOME/Games/umu/umu-greymarch/drive_c/Program Files/Greymarch Launcher
 ```
+
+An in-app update does not replace that extracted copy. electron-updater's NSIS install lands at:
+
+```text
+drive_c/users/steamuser/AppData/Local/Programs/greymarch-launcher
+```
+
+The shortcut must launch that directory when `Greymarch Launcher.exe` is there. Otherwise "restart to update" relaunches the old Program Files binary and the ready banner never clears. Read `package.json` `version` out of each `app.asar` before saying which build is running. On this machine the AppData copy is `0.1.42`. The Program Files copy is the older extract. A new updater asar does not carry local patches.
 
 Symlink only this prefix's Steam game path at the isolated tree:
 
@@ -164,6 +174,8 @@ function readFileVersion(file) {
 
 Repack the asar and restart the launcher. The row is clear only when the window shows `1.6.1170.0`. A future launcher that already reads the PE string does not need this.
 
+`0.1.42` does not include this fallback. `fileVersion()` still returns null when PowerShell returns empty, and it does not read the PE string. The local patch was not reapplied after that update, and the version row was not re-checked on `0.1.42`. If the row is blank, reapply the fallback and repack. Do not treat a missing row as a Steam version mismatch.
+
 ```bash
 npx --yes @electron/asar extract resources/app.asar /tmp/greymarch-asar
 # edit src/main/core/skyrim.js
@@ -196,14 +208,16 @@ Collection:
 https://www.nexusmods.com/games/skyrimspecialedition/collections/agfyia
 ```
 
-That login was not completed, so Vortex never deployed the collection. Do not treat a Vortex window as the install.
+That login was not completed, so Vortex never deployed the collection. Do not treat a Vortex window as the install. The isolated profile's last `gamePath` was still the Steam library tree. It was not started, and it was not used to install. Starting it while that path is the library tree deploys into the other mod list.
 
-What filled the badge was a hash copy into the isolated `Data/` only:
+What filled the badge was a hash copy into the isolated `Data/` only. 233 of 233 probed files matched. The launcher then showed 129 required mods installed.
 
-- Files whose sha256 already matched `required-mods.json` were copied from an existing 1.6.1170 `Data/` tree. Files that did not match were left behind. The other tree was not deployed into, and it did not gain `GreymarchCore.esp`.
-- The rest were already-downloaded archives under `~/.config/Vortex/downloads/skyrimse`. The probed member was extracted and copied only when its sha256 matched the live JSON.
+- Files whose sha256 already matched `required-mods.json` were copied from an existing 1.6.1170 `Data/` tree or from that profile's staging mods. Files that did not match were left behind. The other tree was not deployed into, and it did not gain `GreymarchCore.esp`.
+- Archives already under `~/.config/Vortex/downloads/skyrimse` with an exact `source.fileSize` from the newest `collection.json` were extracted. The probed member was copied only when its sha256 matched the live JSON.
+- Pins that were not on disk were not handed to the running Vortex. That process was the other profile. The logged-in Nexus files page was opened without `nmm=1`, **Slow download** was used, and the archive was saved outside Vortex. Then the same hash-copy. Do not click **Mod manager download**. That fires `nxm://` at whatever Vortex is already up.
+- One pin, True Northern Crowns, did not start from the Slow download button. The logged-in page had to request the download URL and the browser saved the archive. Do not print that URL. The archive is a FOMOD with more than one `True Northern Crowns.esp`. The `Main` copy did not match. `Non Outfit Replace/True Northern Crowns.esp` did. Hash every copy of the probed name. Do not install the FOMOD default because it is the first file in the archive.
 
-The pin list is `collection.json` inside the collection archive, not the first download batch in the log. An exact `source.fileSize` match means the archive is present. That check is not the launcher hash gate.
+The pin list is `collection.json` inside the newest collection archive, not the first download batch in the log. An exact `source.fileSize` match means the archive is present. That check is not the launcher hash gate.
 
 The Play button stays **Download mods** while any `required-mods.json` file is missing, hash-mismatched, or not starred in the prefix `Plugins.txt`:
 
@@ -216,6 +230,16 @@ The badge counts environment failures, plus each mod whose state is not ok, plus
 If the archive is already on disk, hash-copy the probed member into the isolated `Data/` at the probed path, and only when the file's sha256 matches the live JSON. In `7z l -ba` the member path starts at column 53. The plugin is often under `DATA/`, `data/`, or a nested folder. A FaceGen or Voice directory named after the esp is not the plugin. Take `fileId` and `fileSize` from the newest collection archive's `collection.json` for that modId. Do not match pack names.
 
 The launcher removes plugins it treats as conflicts. Do not copy those back from another install.
+
+### Face morphs
+
+The game check can show **1 to review** after the mod badge is green. The warning names loose `.tri` files in `Data/meshes/actors/character/character assets` that match `(male|female)head*.tri` or `*chargen*.tri`. On this tree that was seven files, including `EyesFemaleChargen.tri` and `FemaleHeadChargen.tri`. None of them are in `required-mods.json` or the client manifest.
+
+The launcher's own text says to move them out of that folder if the character appearance crashes (`BSFaceGenModel` / `MaleHeadNord`). They were removed from the isolated tree only. Several were hardlinks shared with the other install. Those paths were unlinked, not renamed, so the other tree kept the file. A backup of the bytes sits beside the isolated game, not inside `Data/`.
+
+### Update ready
+
+**Update game files**, one file, about 2.8 MB, was `Data/Platform/Plugins/skymp5-client.js`. The copy on disk did not match `manifest.json`. It was replaced from `https://files.greymarchonline.com/files/{sha256}` only after the download hash matched. That is not **Get Mods**, and it is not a Vortex deploy.
 
 ### Engine Fixes
 
@@ -238,7 +262,9 @@ One command, after the prefix and the launcher payload are in place:
 scripts/install-shortcut
 ```
 
-That copies `scripts/greymarch-online` to `$HOME/.local/bin/greymarch-online`, writes `$HOME/.local/share/applications/greymarch-online.desktop` with an absolute `Exec` (desktop files do not expand `$HOME`), pulls the 16 through 256 seal frames out of `Greymarch Launcher.exe`, and refreshes the menu cache. There is no Walker binary on this desktop. The app menu, and anything that reads desktop files, picks the entry up from that file. Do not use `logo.webp`, the site favicon, `steam_icon_489830`, or a user hicolor `index.theme`. Do not restart the shell for the icon.
+That copies `scripts/greymarch-online` to `$HOME/.local/bin/greymarch-online`, writes `$HOME/.local/share/applications/greymarch-online.desktop` with an absolute `Exec` (desktop files do not expand `$HOME`), pulls the 16 through 256 seal frames out of the launcher exe the shortcut starts, and refreshes the menu cache. After an in-app update that exe is the AppData copy. Pulling the seal from the Program Files exe leaves the menu on the old mark. There is no Walker binary on this desktop. The app menu, and anything that reads desktop files, picks the entry up from that file. Do not use `logo.webp`, the site favicon, `steam_icon_489830`, or a user hicolor `index.theme`. Do not restart the shell for the icon.
+
+The script starts the AppData launcher when `Greymarch Launcher.exe` is there, and falls back to the Program Files extract otherwise. A click while that exe is already running does nothing. A launch with neither `WAYLAND_DISPLAY` nor `DISPLAY` set leaves a Wine process and no window, and the next click then no-ops. The script sets both when they are empty.
 
 Steam has to be running before Play. The shortcut is not a Steam library launch. `UMU_USE_STEAM=1` uses the Steam client as the bridge, app `489830`. If the client is down, the script starts `steam -silent` and waits. Leave that client open. Do not press Play on Skyrim in Steam. That starts the library tree, not this one.
 
@@ -265,7 +291,7 @@ The launcher asks `https://auth.greymarchonline.com/api/status`. `{"online":fals
 | Proton | `GE-Proton11-7-x86_64` via `umu-run` |
 | Prefix | `$HOME/Games/umu/umu-greymarch` |
 | Game tree | `$HOME/Games/greymarch/Skyrim Special Edition` |
-| Launcher | `Greymarch-Launcher-Setup-latest.exe` (115114532 bytes; `latest.yml` names that size as `0.1.20`) |
+| Launcher | `0.1.42`, `latest.yml` size 115435593. In-app update lives under `AppData/Local/Programs/greymarch-launcher` |
 | Collection | Nexus `agfyia` |
 | Engine Fixes | `7.0.20`, AE / `1.6.1170` plugin, preloader in the game root |
 

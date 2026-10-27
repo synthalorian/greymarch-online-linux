@@ -8,7 +8,17 @@ ROOT=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 BIN_DIR="${BIN_DIR:-$HOME/.local/bin}"
 APP_DIR="${APP_DIR:-$HOME/.local/share/applications}"
 ICON_ROOT="${ICON_ROOT:-$HOME/.local/share/icons/hicolor}"
-LAUNCHER_EXE="${LAUNCHER_EXE:-$HOME/Games/umu/umu-greymarch/drive_c/Program Files/Greymarch Launcher/Greymarch Launcher.exe}"
+# Seal frames come from the exe the shortcut actually starts. After an
+# in-app update that is the AppData copy, not the extracted Program Files one.
+UPDATED_EXE="$HOME/Games/umu/umu-greymarch/drive_c/users/steamuser/AppData/Local/Programs/greymarch-launcher/Greymarch Launcher.exe"
+STOCK_EXE="$HOME/Games/umu/umu-greymarch/drive_c/Program Files/Greymarch Launcher/Greymarch Launcher.exe"
+if [ -z "${LAUNCHER_EXE:-}" ]; then
+  if [ -f "$UPDATED_EXE" ]; then
+    LAUNCHER_EXE="$UPDATED_EXE"
+  else
+    LAUNCHER_EXE="$STOCK_EXE"
+  fi
+fi
 
 install -d "$BIN_DIR" "$APP_DIR"
 install -m 755 "$ROOT/greymarch-online" "$BIN_DIR/greymarch-online"

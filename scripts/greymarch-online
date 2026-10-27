@@ -4,7 +4,13 @@
 set -u
 PREFIX="$HOME/Games/umu/umu-greymarch"
 GE="$HOME/.local/share/Steam/compatibilitytools.d/GE-Proton11-7-x86_64"
-LAUNCHER_DIR="$PREFIX/drive_c/Program Files/Greymarch Launcher"
+# An in-app update does not replace the extracted Program Files copy.
+# electron-updater lands at AppData. Launch that exe when it is there, or
+# "restart to update" relaunches the old binary and the banner never clears.
+LAUNCHER_DIR="$PREFIX/drive_c/users/steamuser/AppData/Local/Programs/greymarch-launcher"
+if [ ! -x "$LAUNCHER_DIR/Greymarch Launcher.exe" ]; then
+  LAUNCHER_DIR="$PREFIX/drive_c/Program Files/Greymarch Launcher"
+fi
 GAME_LINK="$PREFIX/drive_c/Program Files (x86)/Steam/steamapps/common/Skyrim Special Edition"
 LOG="$HOME/.local/share/greymarch-online/launcher-stdio.log"
 EXE="Greymarch Launcher.exe"
@@ -39,6 +45,14 @@ if ! steam_client_up; then
     echo "Steam did not come up. Open the Steam client, then run this again." >&2
     exit 1
   fi
+fi
+
+# A launch with no display leaves a process and no window. The shortcut
+# then sees that process and exits, so the next click does nothing.
+if [ -z "${WAYLAND_DISPLAY:-}${DISPLAY:-}" ]; then
+  export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
+  export WAYLAND_DISPLAY=wayland-1
+  export DISPLAY=:0
 fi
 
 mkdir -p "$(dirname "$LOG")"
