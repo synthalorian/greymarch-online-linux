@@ -237,6 +237,12 @@ The game check can show **1 to review** after the mod badge is green. The warnin
 
 The launcher's own text says to move them out of that folder if the character appearance crashes (`BSFaceGenModel` / `MaleHeadNord`). They were removed from the isolated tree only. Several were hardlinks shared with the other install. Those paths were unlinked, not renamed, so the other tree kept the file. A backup of the bytes sits beside the isolated game, not inside `Data/`.
 
+### Facial textures and red missing-mesh triangles
+
+See [Facial assets and missing-mesh diagnosis](docs/facial-assets.md) for the recorded malformed loose mouth-normal removal, exact beard filenames, and missing-only repairs to split eye-path case branches. These changes preserve valid DDS bytes: no eyebrow conversion or whole-tree symlink is part of the repair. Stage the correction with its deployment ownership so a later deploy does not silently undo it, then restart before testing. Filesystem checks and clean logs are not a confirmed visual pass.
+
+Red triangles near Fort Kastav require a separate [missing-mesh diagnosis](docs/facial-assets.md#red-triangles--missing-meshes-including-near-fort-kastav): identify the exact requested `.nif`, then check case, staging/deployment and archive membership/loading. No verified red-marker fix is claimed.
+
 ### Update ready
 
 **Update game files**, one file, about 2.8 MB, was `Data/Platform/Plugins/skymp5-client.js`. The copy on disk did not match `manifest.json`. It was replaced from `https://files.greymarchonline.com/files/{sha256}` only after the download hash matched. That is not **Get Mods**, and it is not a Vortex deploy.
